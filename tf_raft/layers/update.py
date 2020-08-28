@@ -137,7 +137,7 @@ class BasicUpdateBlock(layers.Layer):
         self.mask = tf.keras.Sequential([
             layers.Conv2D(256, 3, 1, 'same'),
             layers.ReLU(),
-            layers.Conv2D(64+9, 1, 1)
+            layers.Conv2D(64*9, 1, 1)
         ])
 
     def call(self, inputs):
