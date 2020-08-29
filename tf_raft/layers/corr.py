@@ -3,55 +3,59 @@ from tensorflow.keras import layers
 
 
 def bilinear_sampler(image, coords, mask=False):
+    # (bs*h*w, h/i**2, w/i**2, 1)
     _, h, w, _ = image.shape
 
-    # coords: (bs, h, w, 2r+1, 2r+1, 3) -> (bs, h, w, 2r+1, 2r+1)x3
-    gb, gy, gx = tf.unstack(coords, axis=-1)
+    # coords: (bs*h*w, 2r+1, 2r+1, 2) -> (bs*h*w, 2r+1, 2r+1)x2
+    gy, gx = tf.unstack(coords, axis=-1)
     gy = tf.clip_by_value(gy, 0, h-1)
     gx = tf.clip_by_value(gx, 0, w-1)
-    coords = tf.stack([gb, gy, gx], axis=-1)
+    
+    # (bs*h*w, 2r+1, 2r+1)x4
+    gy0 = tf.floor(gy)
+    gy1 = tf.math.ceil(gy)
+    gx0 = tf.floor(gx)
+    gx1 = tf.math.ceil(gx)
 
-    # output: (bs, h, w, 2r+1, 2r+1, nch)
-    image = tf.gather_nd(image, coords)
+    # (bs*h*w, 2r+1, 2r+1, 2)x4
+    g00 = tf.cast(tf.stack([gy0, gx0], axis=-1), dtype=tf.int32)
+    g01 = tf.cast(tf.stack([gy0, gx1], axis=-1), dtype=tf.int32)
+    g10 = tf.cast(tf.stack([gy1, gx0], axis=-1), dtype=tf.int32)
+    g11 = tf.cast(tf.stack([gy1, gx1], axis=-1), dtype=tf.int32)
+
+    # output: (bs*h*w, 2r+1, 2r+1, 1)
+    x00 = tf.gather_nd(image, g00, batch_dims=1)
+    x01 = tf.gather_nd(image, g01, batch_dims=1)
+    x10 = tf.gather_nd(image, g10, batch_dims=1)
+    x11 = tf.gather_nd(image, g11, batch_dims=1)
+
+    # (bs*h*w, 2r+1, 2r+1, 1)x4
+    c00 = tf.expand_dims((gy1 - gy)*(gx1 - gx), axis=-1)
+    c01 = tf.expand_dims((gy1 - gy)*(gx - gx0), axis=-1)
+    c10 = tf.expand_dims((gy - gy0)*(gx1 - gx), axis=-1)
+    c11 = tf.expand_dims((gy - gy0)*(gx - gx0), axis=-1)
+    
+    coords = tf.stack([gy, gx], axis=-1)
+
+    # output: (bs*h*w, 2r+1, 2r+1, nch)
+    coords = tf.cast(coords, tf.int32)
+    image = tf.gather_nd(image, coords, batch_dims=1)
     if mask:
         raise NotImplementedError("mask is not implemented for True")
     return image
 
 
 def coords_grid(batch_size, height, width):
-    gb, gy, gx = tf.meshgrid(tf.range(batch_size),
-                             tf.range(height),
-                             tf.range(width),
-                             indexing='ij')
-    # shape: (bs, h, w, 3)
-    coords = tf.stack([gb, gy, gx], axis=-1)
+    # shape: (height, width)x2
+    gy, gx = tf.meshgrid(tf.range(height), tf.range(width),
+                         indexing='ij')
+    # -> (height, width, 2)
+    coords = tf.stack([gy, gx], axis=-1)
+    # -> (1, height, width, 2)
+    coords = tf.expand_dims(coords, axis=0)
+    # -> (batch_size, height, width, 2)
+    coords = tf.tile(coords, (batch_size, 1, 1, 1))
     return coords
-
-
-# def coords_grid(batch_size, height, width):
-#     #
-#     r = 4
-#     gb, gy, gx = tf.meshgrid(tf.range(batch_size),
-#                              tf.range(height),
-#                              tf.range(width),
-#                              indexing='ij')
-#     # gbyx: (bs, h, w, 3)
-#     coords = tf.stack([gb, gy, gx], axis=-1)
-#     # -> (bs, h, w, 1, 1, 3)
-#     coords = tf.reshape(coords, (batch_size, height, width, 1, 1, 3))
-#     # diff (2r+1, 2r+1)x2
-#     dy, dx = tf.meshgrid(tf.linspace(-r, r, 2*r+1), tf.linspace(-r, r, 2*r+1),
-#                          indexing='ij')
-#     # -> (2r+1, 2r+1, 3)
-#     gd = tf.stack([tf.zeros_like(dy), dy, dx], axis=-1)
-#     # -> (1, 1, 1, 2r+1, 2r+1, 3)
-#     gd = tf.reshape(gd, (1, 1, 1, 2*r+1, 2*r+1, 3))
-#     gd = tf.cast(gd, tf.int32)
-#     # add: (bs, h, w, 2r+1, 2r+1, 3)
-#     coords += gd
-    
-#     # goal: (bs, h, w, 2r+1, 2r+1, 3)
-#     return coords
 
 
 def upflow8(flow, mode='bilinear'):
@@ -68,8 +72,8 @@ class CorrBlock:
         self.radius = radius
 
         corr = self.correlation(fmap1, fmap2)
-        batch_size, h1, w1, dim, h2, w2 = corr.shape
-        corr = tf.reshape(corr, (batch_size*h1*w1, h2, w2, dim))
+        batch_size, h1, w1, _, h2, w2 = corr.shape
+        corr = tf.reshape(corr, (batch_size*h1*w1, h2, w2, 1))
 
         # (bs*h*w, h, w, 1), (bs*h*w, h/2, w/2, 1), ..., (bs*h*w, h/8, w/8, 1)
         self.corr_pyramid = [corr] 
@@ -78,34 +82,37 @@ class CorrBlock:
             self.corr_pyramid.append(corr)
 
     def retrieve(self, coords):
+        ''' Retrieve correlation values specified by coordinates
+        Args:
+          coords: coordinates tensor, shape (batch_size, h, w, 2)
+        
+        Returns:
+          A tensor contains multiscale correlation
+        '''
         r = self.radius
         bs, h, w, _ = coords.shape
-        # -> (bs, h, w, 1, 1, 3)
-        coords = tf.reshape(coords, (batch_size, height, width, 1, 1, 3))
-        # -> (bs, h, w, 1, 1, 1), (bs, h, w, 1, 1, 2)
-        gb, gyx = tf.split(coords, (1, 2), axis=-1)
 
         out_pyramid = []
         for i in range(self.num_levels):
             # (bs*h*w, h, w, 1), (bs*h*w, h/2, w/2, 1), ..., (bs*h*w, h/8, w/8, 1)
             corr = self.corr_pyramid[i]
-            d = tf.linspace(-r, r, 2*r+1)
             # (2r+1, 2r+1)x2
+            d = tf.range(-r, r+1, dtype=tf.float32)
             dy, dx = tf.meshgrid(d, d, indexing='ij')
-            # (2r+1, 2r+1, 3)
-            delta = tf.stack([tf.zeros_like(dy), dy, dx], axis=-1)
-            # -> (1, 1, 1, 2r+1, 2r+1, 3)
-            delta_lvl = tf.reshape(delta, (1, 1, 1, 2*r+1, 2*r+1, 3))
+            # (2r+1, 2r+1, 2)
+            delta = tf.stack([dy, dx], axis=-1)
+            # -> (1, 2r+1, 2r+1, 2)
+            delta_lvl = tf.reshape(delta, (1, 2*r+1, 2*r+1, 2))
 
-            # scale and concat -> (bs, h, w, 1, 1, 3)
-            centroid_lvl = tf.concat([gb, gyx/2**i], axis=-1)
-            # -> (bs, h, w, 2r+1, 2r+1, 3)
+            # reshape and scale -> (bs*h*w, 1, 1, 2)
+            centroid_lvl = tf.reshape(coords, (bs*h*w, 1, 1, 2)) / 2**i
+            # add -> (bs*h*w, 2r+1, 2r+1, 2)
             coords_lvl = centroid_lvl + delta_lvl
 
-            # output: (bs, h, w, 2r+1, 2r+1, nch)
+            # output: (bs*h*w, 2r+1, 2r+1, dim)
             corr = bilinear_sampler(corr, coords_lvl)
             # -> (bs, h, w, (2r+1)*(2r+1)*nch)
-            corr = tf.reshape(bs, h, w, -1)
+            corr = tf.reshape(corr, (bs, h, w, -1))
             out_pyramid.append(corr)
 
         out = tf.concat(out_pyramid, axis=-1)
