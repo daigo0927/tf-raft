@@ -7,8 +7,8 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = "^3.6"
-tensorflow = "^2.3.0"
 tensorflow-addons = "^0.11.1"
+tensorflow = "^2.3.0"
 
 [tool.poetry.dev-dependencies]
 
