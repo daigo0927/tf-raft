@@ -1,56 +1,88 @@
 import tensorflow as tf
+import tensorflow_addons as tfa
 from tensorflow.keras import layers
 
 
-def bilinear_sampler(image, coords, mask=False):
-    # (bs*h*w, h/i**2, w/i**2, 1)
+def tfa_sampler(image, coords, mask=False):
+    ''' Value sampler using tfa.image.resampler
+    Args:
+      image: tensor with shape (bs*h*w, h/i**2, w/i**2, 1)
+      coords: coordinates tensor with shape (bs*h*w,, 2r+1, 2r+1, 2), xy-indexing
+      mask: not implemented (same as the original implementation)
+      
+    Returns:
+      sampled tensor with shape (bs*h*w, 2r+1, 2r+1, 1)
+
+    None that tfa.image.resampler is decorated with @tf.function.
+    Recursive use of this can be expensive and exessive.
+    '''
     _, h, w, _ = image.shape
-
-    # coords: (bs*h*w, 2r+1, 2r+1, 2) -> (bs*h*w, 2r+1, 2r+1)x2
-    gy, gx = tf.unstack(coords, axis=-1)
-    gy = tf.clip_by_value(gy, 0, h-1)
-    gx = tf.clip_by_value(gx, 0, w-1)
-    
-    # (bs*h*w, 2r+1, 2r+1)x4
-    gy0 = tf.floor(gy)
-    gy1 = tf.math.ceil(gy)
-    gx0 = tf.floor(gx)
-    gx1 = tf.math.ceil(gx)
-
-    # (bs*h*w, 2r+1, 2r+1, 2)x4
-    g00 = tf.cast(tf.stack([gy0, gx0], axis=-1), dtype=tf.int32)
-    g01 = tf.cast(tf.stack([gy0, gx1], axis=-1), dtype=tf.int32)
-    g10 = tf.cast(tf.stack([gy1, gx0], axis=-1), dtype=tf.int32)
-    g11 = tf.cast(tf.stack([gy1, gx1], axis=-1), dtype=tf.int32)
-
     # output: (bs*h*w, 2r+1, 2r+1, 1)
-    x00 = tf.gather_nd(image, g00, batch_dims=1)
-    x01 = tf.gather_nd(image, g01, batch_dims=1)
-    x10 = tf.gather_nd(image, g10, batch_dims=1)
-    x11 = tf.gather_nd(image, g11, batch_dims=1)
+    image = tfa.image.resampler(image, coords)
 
-    # (bs*h*w, 2r+1, 2r+1, 1)x4
-    c00 = tf.expand_dims((gy1 - gy)*(gx1 - gx), axis=-1)
-    c01 = tf.expand_dims((gy1 - gy)*(gx - gx0), axis=-1)
-    c10 = tf.expand_dims((gy - gy0)*(gx1 - gx), axis=-1)
-    c11 = tf.expand_dims((gy - gy0)*(gx - gx0), axis=-1)
-    
-    coords = tf.stack([gy, gx], axis=-1)
-
-    # output: (bs*h*w, 2r+1, 2r+1, nch)
-    coords = tf.cast(coords, tf.int32)
-    image = tf.gather_nd(image, coords, batch_dims=1)
     if mask:
         raise NotImplementedError("mask is not implemented for True")
     return image
 
 
+def bilinear_sampler(image, coords):
+    ''' Value sampler using tf.gather_nd
+    Args:
+      image: tensor with shape (bs*h*w, h/i**2, w/i**2, 1)
+      coords: coordinates tensor with shape (bs*h*w,, 2r+1, 2r+1, 2), xy-indexing
+      mask: not implemented (same as the original implementation)
+      
+    Returns:
+      sampled tensor with shape (bs*h*w, 2r+1, 2r+1, 1)
+    '''    
+    _, h, w, _ = image.shape
+    # -> (bs*h*w, 2r+1, 2r+1)x2
+    gx, gy = tf.unstack(coords, axis=-1)
+    gx = tf.clip_by_value(gx, 0, w-1)
+    gy = tf.clip_by_value(gy, 0, h-1)
+
+    # corners: (bs*h*w, 2r+1, 2r+1)x4
+    gx0 = tf.floor(gx)
+    gx1 = tf.math.ceil(gx)
+    gy0 = tf.floor(gy)
+    gy1 = tf.math.ceil(gy)
+
+    # coordinates: (bs*h*w, 2r+1, 2r+1, 2)x4
+    g00 = tf.stack([gy0, gx0], axis=-1)
+    g01 = tf.stack([gy0, gx1], axis=-1)
+    g10 = tf.stack([gy1, gx0], axis=-1)
+    g11 = tf.stack([gy1, gx1], axis=-1)
+
+    # coefficients: (bs*h*w, 2r+1, 2r+1, 1)x4
+    c00 = tf.expand_dims((gy1 - gy)*(gx1 - gx), axis=-1)
+    c01 = tf.expand_dims((gy1 - gy)*(gx - gx0), axis=-1)
+    c10 = tf.expand_dims((gy - gy0)*(gx1 - gx), axis=-1)
+    c11 = tf.expand_dims((gy - gy0)*(gx - gx0), axis=-1)
+
+    # gathered values: (bs*h*w, 2r+1, 2r+1, 1)
+    x00 = tf.gather_nd(image, tf.cast(g00, dtype=tf.int32), batch_dims=1)
+    x01 = tf.gather_nd(image, tf.cast(g01, dtype=tf.int32), batch_dims=1)
+    x10 = tf.gather_nd(image, tf.cast(g10, dtype=tf.int32), batch_dims=1)
+    x11 = tf.gather_nd(image, tf.cast(g11, dtype=tf.int32), batch_dims=1)
+
+    output = c00 * x00 + c01 * x01 + c10 * x10 + c11 * x11
+    return output
+
+
 def coords_grid(batch_size, height, width):
+    ''' Generate coordinates (xy-order) from given info
+    Args:
+      batch_size, height, width: int values
+
+    Returns:
+      coordinates tensor with shape (bs, h, w, 2), xy-indexing
+    '''
     # shape: (height, width)x2
-    gy, gx = tf.meshgrid(tf.range(height), tf.range(width),
+    gy, gx = tf.meshgrid(tf.range(height, dtype=tf.float32),
+                         tf.range(width, dtype=tf.float32),
                          indexing='ij')
     # -> (height, width, 2)
-    coords = tf.stack([gy, gx], axis=-1)
+    coords = tf.stack([gx, gy], axis=-1)
     # -> (1, height, width, 2)
     coords = tf.expand_dims(coords, axis=0)
     # -> (batch_size, height, width, 2)
@@ -88,6 +120,7 @@ class CorrBlock:
         
         Returns:
           A tensor contains multiscale correlation
+            with shape (bs, h, w, 81*num_levels)
         '''
         r = self.radius
         bs, h, w, _ = coords.shape
