@@ -12,7 +12,6 @@ BATCH_SIZE = 4
 IMAGE_SIZE = (32, 32)
 
 
-
 def test_sampler():
     r = 4
     h, w = IMAGE_SIZE
