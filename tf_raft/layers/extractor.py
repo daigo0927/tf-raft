@@ -24,7 +24,7 @@ class ResBlock(layers.Layer):
         self.strides = strides
 
         self.conv1 = layers.Conv2D(filters, 3, strides, 'same')
-        self.conv2 = layers.Conv2D(filters, 3, strides, 'same')
+        self.conv2 = layers.Conv2D(filters, 3, 1, 'same')
 
         groups = filters // 8
         self.norm1 = Normalization(norm_type, groups)
@@ -92,7 +92,7 @@ class BasicEncoder(layers.Layer):
         self.norm_type = norm_type
         self.drop_rate = drop_rate
 
-        self.conv1 = Conv2D(64, 7, 2, 'same')        
+        self.conv1 = layers.Conv2D(64, 7, 2, 'same')
         self.norm1 = Normalization(norm_type, groups=8)
 
         self.layer1 = self._make_layer(64, strides=1)
@@ -137,7 +137,7 @@ class SmallEncoder(layers.Layer):
         self.norm_type = norm_type
         self.drop_rate = drop_rate
 
-        self.conv1 = Conv2D(32, 7, 2, 'same')
+        self.conv1 = layers.Conv2D(32, 7, 2, 'same')
         self.norm1 = Normalization(norm_type, groups=8)
 
         self.layer1 = self._make_layer(32, strides=1)
