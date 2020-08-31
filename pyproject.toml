@@ -9,6 +9,7 @@ license = "MIT"
 python = "^3.6"
 tensorflow-addons = "^0.11.1"
 tensorflow = "^2.3.0"
+albumentations = "^0.4.6"
 
 [tool.poetry.dev-dependencies]
 
