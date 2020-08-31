@@ -8,6 +8,7 @@ import tensorflow as tf
 
 import os
 import math
+import copy
 import random
 from glob import glob
 import os.path as osp
@@ -103,11 +104,17 @@ class FlowDataset:
         # return img1, img2, flow, valid.float()
         return img1, img2, flow, valid
 
-
     def __rmul__(self, v):
-        self.flow_list = v * self.flow_list
-        self.image_list = v * self.image_list
-        return self
+        self_copy = copy.deepcopy(self)
+        self_copy.flow_list *= v
+        self_copy.image_list *= v
+        return self_copy
+
+    def __add__(self, other):
+        copied = copy.deepcopy(self)
+        copied.flow_list += other.flow_list
+        copied.image_list += other.image_list
+        return copied
         
     def __len__(self):
         return len(self.image_list)
