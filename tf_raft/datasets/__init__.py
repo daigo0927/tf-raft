@@ -5,5 +5,6 @@ from .dataset import (
     KITTI,
     HD1K,
     fetch_dataloader,
-    as_supervised
+    as_supervised,
+    set_shapes
 )

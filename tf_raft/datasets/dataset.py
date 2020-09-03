@@ -259,5 +259,13 @@ def fetch_dataloader(args, TRAIN_DS='C+T+K+S+H'):
     return train_loader
 
 
+def set_shapes(image1, image2, flow, valid, batch_size, image_size):
+    image1.set_shape((batch_size, *image_size, 3))
+    image2.set_shape((batch_size, *image_size, 3))
+    flow.set_shape((batch_size, *image_size, 2))
+    valid.set_shape((batch_size, *image_size))
+    return image1, image2, flow, valid
+    
+
 def as_supervised(image1, image2, flow, valid):
     return (image1, image2), (flow, valid)
