@@ -105,13 +105,6 @@ class RAFT(tf.keras.Model):
         # flow_predictions[-1] is the finest output
         return flow_predictions
 
-    def build(self, input_shape):
-        dummy1 = tf.zeros(input_shape[0], dtype=tf.float32)
-        dummy2 = tf.zeros(input_shape[1], dtype=tf.float32)
-
-        _ = self.call([dummy1, dummy2], training=True)
-        super().build(input_shape)
-
     def compile(self, optimizer, loss, epe, **kwargs):
         super().compile(**kwargs)
         self.optimizer = optimizer
@@ -126,8 +119,8 @@ class RAFT(tf.keras.Model):
         with tf.GradientTape() as tape:
             flow_predictions = self([image1, image2], training=True)
             loss = self.loss([flow, valid], flow_predictions)
-        grads = tape.gradients(loss, self.trainable_weights)
-        self.optimizer.apply_gradients(grads, self.trainable_weights)
+        grads = tape.gradient(loss, self.trainable_weights)
+        self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
 
         info = self.epe([flow, valid], flow_predictions)
         return {'loss': loss, **info}
