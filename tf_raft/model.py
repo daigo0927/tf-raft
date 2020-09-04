@@ -6,7 +6,7 @@ from .layers.extractor import BasicEncoder, SmallEncoder
 from .layers.corr import CorrBlock, bilinear_sampler, coords_grid, upflow8
 
 
-class RAFT(layers.Layer):
+class RAFT(tf.keras.Model):
     def __init__(self, drop_rate=0, iters=12, **kwargs):
         super().__init__(**kwargs)
 
@@ -104,6 +104,33 @@ class RAFT(layers.Layer):
 
         # flow_predictions[-1] is the finest output
         return flow_predictions
+
+    def build(self, input_shape):
+        dummy1 = tf.zeros(input_shape[0], dtype=tf.float32)
+        dummy2 = tf.zeros(input_shape[1], dtype=tf.float32)
+
+        _ = self.call([dummy1, dummy2], training=True)
+        super().build(input_shape)
+
+    def compile(self, optimizer, loss, epe, **kwargs):
+        super().compile(**kwargs)
+        self.optimizer = optimizer
+        self.loss = loss
+        self.epe = epe
+
+    def train_step(self, data):
+        image1, image2, flow, valid = data
+        image1 = tf.cast(image1, dtype=tf.float32)
+        image2 = tf.cast(image2, dtype=tf.float32)
+
+        with tf.GradientTape() as tape:
+            flow_predictions = self([image1, image2], training=True)
+            loss = self.loss([flow, valid], flow_predictions)
+        grads = tape.gradients(loss, self.trainable_weights)
+        self.optimizer.apply_gradients(grads, self.trainable_weights)
+
+        info = self.epe([flow, valid], flow_predictions)
+        return {'loss': loss, **info}
 
 
 class SmallRAFT(RAFT):
