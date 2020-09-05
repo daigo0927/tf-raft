@@ -30,7 +30,7 @@ class VisFlowCallback(callbacks.Callback):
                  target_size=(448, 1024),
                  num_visualize=1,
                  choose_random=False,
-                 logdir='logs',
+                 logdir='predicted_flows',
                  **kwargs):
         '''
         Args:
@@ -83,6 +83,6 @@ class VisFlowCallback(callbacks.Callback):
 
             contents = np.concatenate([image1, image2, flow_img], axis=0)
 
-            filename = f'epoch{epoch+1}_{scene}_{index}.png'
+            filename = f'epoch{str(epoch+1).zfill(3)}_{scene}_{index}.png'
             savepath = os.path.join(self.logdir, filename)
             imageio.imwrite(savepath, contents)
