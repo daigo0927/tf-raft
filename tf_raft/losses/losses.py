@@ -21,6 +21,28 @@ def sequence_loss(y_true, y_pred, gamma=0.8, max_flow=400):
     return flow_loss
 
 
+def end_point_error(y_true, y_pred, max_flow=400):
+    flow_gt, valid = y_true
+        
+    # exclude invalid pixels and extremely large displacements
+    mag = tf.sqrt(tf.reduce_sum(flow_gt**2, axis=-1))
+    valid = valid & (mag < max_flow)
+
+    epe = tf.sqrt(tf.reduce_sum((y_pred[-1] - flow_gt)**2, axis=-1))
+    epe = epe[valid]
+    epe_under1 = tf.cast(epe < 1, dtype=tf.float32)
+    epe_under3 = tf.cast(epe < 3, dtype=tf.float32)
+    epe_under5 = tf.cast(epe < 5, dtype=tf.float32)
+
+    result = {
+        'epe': tf.reduce_mean(epe),
+        'u1': tf.reduce_mean(epe_under1),
+        'u3': tf.reduce_mean(epe_under3),
+        'u5': tf.reduce_mean(epe_under5)
+    }
+    return result
+
+
 class EndPointError(tf.keras.metrics.Metric):
     ''' Calculates end-point-error and relating metrics '''
     def __init__(self, max_flow=400, **kwargs):
@@ -37,8 +59,6 @@ class EndPointError(tf.keras.metrics.Metric):
     def update_state(self, y_true, y_pred):
         flow_gt, valid = y_true
         
-        batch_size = tf.cast(flow_gt.shape[0], dtype=self.epe.dtype)
-
         # exclude invalid pixels and extremely large displacements
         mag = tf.sqrt(tf.reduce_sum(flow_gt**2, axis=-1))
         valid = valid & (mag < self.max_flow)
@@ -53,12 +73,14 @@ class EndPointError(tf.keras.metrics.Metric):
         self.u1.assign_add(tf.reduce_mean(rate_under1))
         self.u3.assign_add(tf.reduce_mean(rate_under3))
         self.u5.assign_add(tf.reduce_mean(rate_under5))
-        self.count.assign_add(batch_size)
+        self.count.assign_add(1)
 
     def result(self):
         count = tf.cast(self.count, dtype=self.epe.dtype)
-        epe = self.epe / count
-        u1 = self.u1 / count
-        u3 = self.u3 / count
-        u5 = self.u5 / count
-        return epe, u1, u3, u5
+        result = {
+            'epe': self.epe / count,
+            'u1': self.u1 / count,
+            'u3': self.u3 / count,
+            'u5': self.u5 / count
+        }
+        return result

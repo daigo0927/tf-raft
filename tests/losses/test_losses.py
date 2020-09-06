@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import tensorflow as tf
-from tf_raft.losses.losses import sequence_loss, EndPointError
+from tf_raft.losses.losses import sequence_loss, end_point_error, EndPointError
 
 
 @pytest.fixture
@@ -58,20 +58,10 @@ def test_end_point_error(data):
     u3_valid = 3 / 8
     u5_valid = 5 / 8
 
-    metric = EndPointError()
-    for _ in range(10):
-        metric.update_state([flow_gt, valid], predictions)
-        epe_actual, u1_actual, u3_actual, u5_actual = metric.result()
+    info = end_point_error([flow_gt, valid], predictions)
 
     # 2 decimal for sqrt precision
-    np.testing.assert_almost_equal(epe_actual, epe_valid, decimal=2)
-    np.testing.assert_almost_equal(u1_actual, u1_valid, decimal=2)
-    np.testing.assert_almost_equal(u3_actual, u3_valid, decimal=2)
-    np.testing.assert_almost_equal(u5_actual, u5_valid, decimal=2)
-
-    metric.reset_states()
-    assert metric.epe.numpy() == 0
-    assert metric.u1.numpy() == 0
-    assert metric.u3.numpy() == 0
-    assert metric.u5.numpy() == 0
-    assert metric.count.numpy() == 0
+    np.testing.assert_almost_equal(info['epe'], epe_valid, decimal=2)
+    np.testing.assert_almost_equal(info['u1'], u1_valid, decimal=2)
+    np.testing.assert_almost_equal(info['u3'], u3_valid, decimal=2)
+    np.testing.assert_almost_equal(info['u5'], u5_valid, decimal=2)

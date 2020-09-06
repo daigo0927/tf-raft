@@ -4,5 +4,7 @@ from .dataset import (
     FlyingThings3D,
     KITTI,
     HD1K,
-    fetch_dataloader
+    fetch_dataloader,
+    as_supervised,
+    set_shapes
 )
