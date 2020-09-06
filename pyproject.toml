@@ -3,7 +3,8 @@ name = "tf-raft"
 version = "0.0.0"
 description = "RAFT (Recurrent All Pairs Field Transforms for Optical Flow) implementation via tf.keras"
 authors = ["Daigo Hirooka <daigo.hirooka@gmail.com>"]
-license = "MIT"
+repository = "https://github.com/daigo0927/tf-raft"
+readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.6"
@@ -12,6 +13,10 @@ tensorflow = "^2.3.0"
 albumentations = "^0.4.6"
 
 [tool.poetry.dev-dependencies]
+
+[tool.poetry-dynamic-versioning]
+enable = true
+style = "pep440"
 
 [build-system]
 requires = ["poetry>=0.12"]
