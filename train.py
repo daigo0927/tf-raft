@@ -139,8 +139,8 @@ if __name__ == '__main__':
     parser.add_argument('--chairs-split-txt', type=str, required=True,
                         help='Path to the FlyingChairs split textfile')
     
-    parser.add_argument('-e', '--epochs', default=10, type=int,
-                        help='Number of epochs [10]')
+    parser.add_argument('-e', '--epochs', default=1, type=int,
+                        help='Number of epochs [1]')
     parser.add_argument('-bs', '--batch_size', default=4, type=int,
                         help='Batch size [4]')
     parser.add_argument('-lr', '--learning_rate', default=1.2e-4, type=float,
@@ -151,8 +151,8 @@ if __name__ == '__main__':
     parser.add_argument('--iters', default=6, type=int,
                         help='Number of iterations in RAFT inference [6]')
 
-    parser.add_argument('--crop_size', nargs=2, type=int, default=[384, 512],
-                        help='Crop size for raw image [384, 512]')
+    parser.add_argument('--crop_size', nargs=2, type=int, default=[320, 448],
+                        help='Crop size for raw image [320, 448]')
     parser.add_argument('--min_scale', default=-0.1, type=float,
                         help='Minimum scale in augmentation [-0.1]')
     parser.add_argument('--max_scale', default=0.1, type=float,
