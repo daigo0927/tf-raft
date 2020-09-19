@@ -26,6 +26,7 @@ def train(args):
         max_scale = args.max_scale
         do_flip = args.do_flip
 
+        num_visualize = args.num_visualize
         resume = args.resume
     except ValueError:
         print('invalid arguments are given')
@@ -110,7 +111,11 @@ def train(args):
 
     callbacks = [
         tf.keras.callbacks.TensorBoard(),
-        VisFlowCallback(ds_test, num_visualize=1, choose_random=True),
+        VisFlowCallback(
+            ds_test,
+            num_visualize=num_visualize,
+            choose_random=True
+        ),
         tf.keras.callbacks.ModelCheckpoint(
             filepath='checkpoints/model',
             save_weights_only=True,
@@ -161,6 +166,8 @@ if __name__ == '__main__':
                         help='Disable flip in augmentation [True]')
     parser.set_defaults(do_flip=True)
 
+    parser.add_argument('-nv', '--num-visualize', type=int, default=4,
+                        help='Number of visualization per epoch [4]')
     parser.add_argument('-r', '--resume', type=str, default=None,
                         help='Pretrained checkpoints [None]')
     args = parser.parse_args()
