@@ -64,11 +64,6 @@ def train(args):
         ds_train,
         output_types=(tf.uint8, tf.uint8, tf.float32, tf.bool),
     )
-    train_size = 8
-    val_size = 4
-    ds_val.image_list = ds_val.image_list[:val_size]
-    ds_val.flow_list = ds_val.flow_list[:val_size]
-    
     ds_train = ds_train.shuffle(buffer_size=train_size)\
                        .repeat(epochs)\
                        .batch(batch_size)\
