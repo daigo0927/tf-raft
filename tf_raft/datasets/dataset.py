@@ -301,13 +301,29 @@ def fetch_dataloader(args, TRAIN_DS='C+T+K+S+H'):
     return train_loader
 
 
-def set_shapes(image1, image2, flow, valid, batch_size, image_size):
-    image1.set_shape((batch_size, *image_size, 3))
-    image2.set_shape((batch_size, *image_size, 3))
-    flow.set_shape((batch_size, *image_size, 2))
-    valid.set_shape((batch_size, *image_size))
-    return image1, image2, flow, valid
+def ShapeSetter(batch_size, image_size):
+    def f(image1, image2, flow, valid):
+        image1.set_shape((batch_size, *image_size, 3))
+        image2.set_shape((batch_size, *image_size, 3))
+        flow.set_shape((batch_size, *image_size, 2))
+        valid.set_shape((batch_size, *image_size))
+        return image1, image2, flow, valid
+    return f
     
 
 def as_supervised(image1, image2, flow, valid):
     return (image1, image2), (flow, valid)
+
+
+def CropOrPadder(target_size):
+    def f(image1, image2, flow, valid):
+        image1 = tf.image.resize_with_crop_or_pad(image1, *target_size)
+        image2 = tf.image.resize_with_crop_or_pad(image2, *target_size)
+        
+        flow = tf.image.resize_with_crop_or_pad(flow, *target_size)
+        valid = tf.expand_dims(valid, axis=-1)
+        valid = tf.image.resize_with_crop_or_pad(valid, *target_size)
+        valid = tf.squeeze(valid, axis=-1)        
+
+        return image1, image2, flow, valid
+    return f
