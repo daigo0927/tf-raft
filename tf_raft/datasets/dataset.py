@@ -122,6 +122,11 @@ class FlowDataset:
     def __call__(self):
         for sample in self:
             yield sample
+
+    def shuffle(self):
+        perm = np.random.permutation(len(self))
+        self.flow_list = [self.flow_list[i] for i in perm]
+        self.image_list = [self.image_list[i] for i in perm]
         
 
 class MpiSintel(FlowDataset):

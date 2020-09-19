@@ -47,6 +47,7 @@ def train(args):
                                    split_txt=chairs_split_txt,
                                    root=chairs_dir)
     ds_train = 20*ds_train_sintel + ds_train_chairs
+    ds_train.shuffle()
     train_size = len(ds_train)
     print(f'Found {train_size} samples for training')
 
@@ -64,8 +65,7 @@ def train(args):
         ds_train,
         output_types=(tf.uint8, tf.uint8, tf.float32, tf.bool),
     )
-    ds_train = ds_train.shuffle(buffer_size=train_size)\
-                       .repeat(epochs)\
+    ds_train = ds_train.repeat(epochs)\
                        .batch(batch_size)\
                        .map(ShapeSetter(batch_size, crop_size))\
                        .prefetch(buffer_size=1)
