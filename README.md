@@ -46,6 +46,35 @@ raft.fit(
 
 In practice, you are required to prepare dataset, optimizer, callbacks etc, check details in `train.py`.
 
+## Load the pretrained weights
+
+You can download the pretrained weights via `gsutil` or `curl` (trained on MPI-Sintel Clean, and FlyingChairs)
+
+```
+$ gsutil cp -r gs://tf-raft-pretrained/checkpoints .
+```
+or
+```
+$ mkdir checkpoints
+$ curl -OL https://storage.googleapis.com/tf-raft-pretrained/checkpoints/model.data-00000-of-00001
+$ curl -OL https://storage.googleapis.com/tf-raft-pretrained/checkpoints/model.index
+$ mv model* checkpoints/
+```
+
+then
+
+```
+raft = RAFT(iters=iters)
+raft.load_weights('checkpoints/model')
+
+# forward (with dummy inputs)
+x1 = np.random.uniform(0, 255, (1, 448, 512, 3)).astype(np.float32)
+x2 = np.random.uniform(0, 255, (1, 448, 512, 3)).astype(np.float32)
+flow_predictions = model([x1, x2], training=False)
+
+print(flow_predictions[-1].shape) # >> (1, 448, 512, 2)
+```
+
 ## Note
 Though I have tried to reproduce the original implementation faithfully, there is some difference between it and my implementation (mainly because of used framework: PyTorch/TensorFlow);
 
