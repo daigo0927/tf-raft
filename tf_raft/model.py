@@ -139,6 +139,30 @@ class RAFT(tf.keras.Model):
         self.flow_metrics['u5'].update_state(info['u5'])
         return {k: m.result() for k, m in self.flow_metrics.items()}
 
+    def test_step(self, data):
+        image1, image2, flow, valid = data
+        image1 = tf.cast(image1, dtype=tf.float32)
+        image2 = tf.cast(image2, dtype=tf.float32)
+
+        flow_predictions = self([image1, image2], training=False)
+        loss = self.loss([flow, valid], flow_predictions)
+
+        info = self.epe([flow, valid], flow_predictions)
+        self.flow_metrics['loss'].update_state(loss)
+        self.flow_metrics['epe'].update_state(info['epe'])
+        self.flow_metrics['u1'].update_state(info['u1'])
+        self.flow_metrics['u3'].update_state(info['u3'])
+        self.flow_metrics['u5'].update_state(info['u5'])
+        return {k: m.result() for k, m in self.flow_metrics.items()}
+
+    def predict_step(self, data):
+        image1, image2, *_ = data
+        image1 = tf.cast(image1, dtype=tf.float32)
+        image2 = tf.cast(image2, dtype=tf.float32)
+
+        flow_predictions = self([image1, image2], training=False)
+        return flow_predictions[-1]
+
     def reset_metrics(self):
         for k, m in self.flow_metrics.items():
             m.reset_states()

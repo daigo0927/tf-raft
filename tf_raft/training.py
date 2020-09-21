@@ -59,7 +59,7 @@ class VisFlowCallback(callbacks.Callback):
                                        replace=False)
         else:
             vis_ids = range(self.num_visualize)
-        
+
         for i in vis_ids:
             image1, image2, (scene, index) = self.dataset[i]
             if len(image1.shape) > 3:

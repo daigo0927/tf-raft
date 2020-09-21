@@ -6,5 +6,6 @@ from .dataset import (
     HD1K,
     fetch_dataloader,
     as_supervised,
-    set_shapes
+    ShapeSetter,
+    CropOrPadder,
 )
