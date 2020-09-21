@@ -50,11 +50,11 @@ In practice, you are required to prepare dataset, optimizer, callbacks etc, chec
 
 You can download the pretrained weights via `gsutil` or `curl` (trained on MPI-Sintel Clean, and FlyingChairs)
 
-```
+``` shell
 $ gsutil cp -r gs://tf-raft-pretrained/checkpoints .
 ```
 or
-```
+``` shell
 $ mkdir checkpoints
 $ curl -OL https://storage.googleapis.com/tf-raft-pretrained/checkpoints/model.data-00000-of-00001
 $ curl -OL https://storage.googleapis.com/tf-raft-pretrained/checkpoints/model.index
@@ -63,7 +63,7 @@ $ mv model* checkpoints/
 
 then
 
-```
+``` python
 raft = RAFT(iters=iters)
 raft.load_weights('checkpoints/model')
 
