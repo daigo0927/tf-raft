@@ -1,16 +1,9 @@
 import numpy as np
-import random
-import math
-from PIL import Image
-
 import cv2
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)
-
-# import torch
-# from torchvision.transforms import ColorJitter
-# import torch.nn.functional as F
 import albumentations as A
+from PIL import Image
 
 
 class FlowAugmentor:
@@ -37,7 +30,7 @@ class FlowAugmentor:
                 contrast_limit=0.4
             ),
             A.HueSaturationValue(
-                hue_shift_limit=int(0.5/3.14*255),
+                hue_shift_limit=int(0.5/3.14*180),
                 sat_shift_limit=int(0.4*255),
                 val_shift_limit=int(0.)
             )
@@ -135,6 +128,7 @@ class FlowAugmentor:
 
         return img1, img2, flow
 
+    
 class SparseFlowAugmentor:
     def __init__(self, crop_size, min_scale=-0.2, max_scale=0.5, do_flip=False):
         # spatial augmentation params
@@ -151,13 +145,25 @@ class SparseFlowAugmentor:
         self.v_flip_prob = 0.1
 
         # photometric augmentation params
-        self.photo_aug = ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3/3.14)
+        # self.photo_aug = ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3/3.14)
+        self.photo_aug = A.Compose([
+            A.RandomBrightnessContrast(
+                brightness_limit=0.3,
+                contrast_limit=0.3
+            ),
+            A.HueSaturationValue(
+                hue_shift_limit=int(0.3/3.14*180),
+                sat_shift_limit=int(0.3*255),
+                val_shift_limit=int(0.)
+            )
+        ])        
         self.asymmetric_color_aug_prob = 0.2
         self.eraser_aug_prob = 0.5
         
     def color_transform(self, img1, img2):
         image_stack = np.concatenate([img1, img2], axis=0)
-        image_stack = np.array(self.photo_aug(Image.fromarray(image_stack)), dtype=np.uint8)
+        # image_stack = np.array(self.photo_aug(Image.fromarray(image_stack)), dtype=np.uint8)
+        image_stack = self.photo_aug(image=image_stack)['image']
         img1, img2 = np.split(image_stack, 2, axis=0)
         return img1, img2
 
@@ -247,7 +253,6 @@ class SparseFlowAugmentor:
         flow = flow[y0:y0+self.crop_size[0], x0:x0+self.crop_size[1]]
         valid = valid[y0:y0+self.crop_size[0], x0:x0+self.crop_size[1]]
         return img1, img2, flow, valid
-
 
     def __call__(self, img1, img2, flow, valid):
         img1, img2 = self.color_transform(img1, img2)
