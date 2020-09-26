@@ -1,0 +1,25 @@
+data:
+  root: './MPI-Sintel-complete'
+
+augment:
+  crop_size: [368, 768]
+  min_scale: -0.2
+  max_scale: 0.6
+  do_flip: True
+
+model:
+  iters: 12
+  iters_pred: 24
+  resume: 0 # '/path/to/checkpoint'
+
+train:
+  epochs: 1
+  batch_size: 4
+  learning_rate: 0.00012
+  weight_decay: 0.00001
+
+visualize:
+  num_visualize: 4
+  choose_random: True
+
+logdir: './logs'
