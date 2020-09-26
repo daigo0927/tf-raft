@@ -29,7 +29,7 @@ def train(config, logdir):
         batch_size = train_config['batch_size']
         learning_rate = train_config['learning_rate']
         weight_decay = train_config['weight_decay']
-        clipnorm = train_config['clipnorm']
+        clip_norm = train_config['clip_norm']
 
         vis_config = config['visualize']
         num_visualize = vis_config['num_visualize']
@@ -91,12 +91,12 @@ def train(config, logdir):
     optimizer = tfa.optimizers.AdamW(
         weight_decay=weight_decay,
         learning_rate=scheduler,
-        clipnorm=clipnorm
     )
 
     raft = RAFT(drop_rate=0, iters=iters, iters_pred=iters_pred)
     raft.compile(
         optimizer=optimizer,
+        clip_norm=clip_norm,
         loss=sequence_loss,
         epe=end_point_error
     )

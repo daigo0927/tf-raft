@@ -17,7 +17,7 @@ train:
   batch_size: 4
   learning_rate: 0.00012
   weight_decay: 0.00001
-  clipnorm: 1
+  clip_norm: 1
 
 visualize:
   num_visualize: 4
