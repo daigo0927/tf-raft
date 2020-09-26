@@ -10,6 +10,7 @@ augment:
 
 model:
   iters: 12
+  iters_pred: 24
   resume: 0 # '/path/to/checkpoint'
 
 train:

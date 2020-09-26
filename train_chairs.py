@@ -22,6 +22,7 @@ def train(config, logdir):
 
         model_config = config['model']
         iters = model_config['iters']
+        iters_pred = model_config['iters_pred']
         resume = model_config['resume']
 
         train_config = config['train']
@@ -87,7 +88,7 @@ def train(config, logdir):
         learning_rate=scheduler
     )
 
-    raft = RAFT(drop_rate=0, iters=iters)
+    raft = RAFT(drop_rate=0, iters=iters, iters_pred=iters_pred)
     raft.compile(
         optimizer=optimizer,
         loss=sequence_loss,
