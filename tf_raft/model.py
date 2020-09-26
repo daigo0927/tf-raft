@@ -132,7 +132,7 @@ class RAFT(tf.keras.Model):
             flow_predictions = self([image1, image2], training=True)
             loss = self.loss([flow, valid], flow_predictions)
         grads = tape.gradient(loss, self.trainable_weights)
-        grads = tf.clip_by_global_norm(grads, self.clip_norm)
+        grads, _ = tf.clip_by_global_norm(grads, self.clip_norm)
         self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
 
         info = self.epe([flow, valid], flow_predictions[-1])
