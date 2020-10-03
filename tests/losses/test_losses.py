@@ -58,7 +58,7 @@ def test_end_point_error(data):
     u3_valid = 3 / 8
     u5_valid = 5 / 8
 
-    info = end_point_error([flow_gt, valid], predictions)
+    info = end_point_error([flow_gt, valid], predictions[-1])
 
     # 2 decimal for sqrt precision
     np.testing.assert_almost_equal(info['epe'], epe_valid, decimal=2)

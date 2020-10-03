@@ -43,33 +43,35 @@ def test_upsample_flow():
 
 def test_raft():
     iters = 6
+    iters_pred = 12
     image1 = tf.random.normal((BATCH_SIZE, *IMAGE_SIZE, 3))
     image2 = tf.random.normal((BATCH_SIZE, *IMAGE_SIZE, 3))
 
-    model = RAFT(drop_rate=0.0, iters=iters)
+    model = RAFT(drop_rate=0.0, iters=iters, iters_pred=iters_pred)
     output = model([image1, image2], training=True)
     assert len(output) == iters
     for flow in output:
         assert flow.shape == (BATCH_SIZE, *IMAGE_SIZE, 2)
 
     output = model([image1, image2], training=False)
-    assert len(output) == iters
+    assert len(output) == iters_pred
     for flow in output:
         assert flow.shape == (BATCH_SIZE, *IMAGE_SIZE, 2)
 
         
 def test_small_raft():
     iters = 6
+    iters_pred = 12
     image1 = tf.random.normal((BATCH_SIZE, *IMAGE_SIZE, 3))
     image2 = tf.random.normal((BATCH_SIZE, *IMAGE_SIZE, 3))
 
-    model = SmallRAFT(drop_rate=0.0, iters=iters)
+    model = SmallRAFT(drop_rate=0.0, iters=iters, iters_pred=iters_pred)
     output = model([image1, image2], training=True)
     assert len(output) == iters
     for flow in output:
         assert flow.shape == (BATCH_SIZE, *IMAGE_SIZE, 2)
 
     output = model([image1, image2], training=False)
-    assert len(output) == iters
+    assert len(output) == iters_pred
     for flow in output:
         assert flow.shape == (BATCH_SIZE, *IMAGE_SIZE, 2)
