@@ -29,42 +29,70 @@ see details in `pyoroject.toml`
 from tf_raft.model import RAFT, SmallRAFT
 from tf_raft.losses import sequence_loss, end_point_error
 
-# iters means number of recurrent update of flow 
-raft = RAFT(iters=iters)
+# iters/iters_pred are the number of recurrent update of flow in training/prediction
+raft = RAFT(iters=iters, iters_pred=iters_pred)
 raft.compile(
     optimizer=optimizer,
+    clip_norm=clip_norm,
     loss=sequence_loss,
     epe=end_point_error
 )
 
 raft.fit(
-    dataset,
+    ds_train,
     epochs=epochs,
     callbacks=callbacks,
+    steps_per_epoch=train_size//batch_size,
+    validation_data=ds_val,
+    validation_steps=val_size
 )
 ```
 
-In practice, you are required to prepare dataset, optimizer, callbacks etc, check details in `train.py`.
+In practice, you are required to prepare dataset, optimizer, callbacks etc, check details in `train_sintel.py` or `train_chairs.py`.
 
-## Load the pretrained weights
+### Train via YAML configuration
 
-You can download the pretrained weights via `gsutil` or `curl` (trained on MPI-Sintel Clean, and FlyingChairs)
+`train_chairs.py` and `train_sintel.py` train RAFT model via YAML configuration. Sample configs are in `configs` directory. Run;
 
 ``` shell
-$ gsutil cp -r gs://tf-raft-pretrained/checkpoints .
+$ python train_chairs.py /path/to/config.yml
+```
+
+## Pre-trained models
+
+I made the pre-trained weights (on both FlyingChairs and MPI-Sintel) public.
+You can download them via `gsutil` or `curl`.
+
+### Trained weights on FlyingChairs
+
+``` shell
+$ gsutil cp -r gs://tf-raft-pretrained/2020-09-26T18-38/checkpoints .
 ```
 or
 ``` shell
 $ mkdir checkpoints
-$ curl -OL https://storage.googleapis.com/tf-raft-pretrained/checkpoints/model.data-00000-of-00001
-$ curl -OL https://storage.googleapis.com/tf-raft-pretrained/checkpoints/model.index
+$ curl -OL https://storage.googleapis.com/tf-raft-pretrained/2020-09-26T18-38/checkpoints/model.data-00000-of-00001
+$ curl -OL https://storage.googleapis.com/tf-raft-pretrained/2020-09-26T18-38/checkpoints/model.index
 $ mv model* checkpoints/
 ```
 
-then
+### Trained weights on MPI-Sintel (Clean path)
+
+``` shell
+$ gsutil cp -r gs://tf-raft-pretrained/2020-09-26T08-51/checkpoints .
+```
+or
+``` shell
+$ mkdir checkpoints
+$ curl -OL https://storage.googleapis.com/tf-raft-pretrained/2020-09-26T08-51/checkpoints/model.data-00000-of-00001
+$ curl -OL https://storage.googleapis.com/tf-raft-pretrained/2020-09-26T08-51/checkpoints/model.index
+$ mv model* checkpoints/
+```
+
+### Load weights
 
 ``` python
-raft = RAFT(iters=iters)
+raft = RAFT(iters=iters, iters_pred=iters_pred)
 raft.load_weights('checkpoints/model')
 
 # forward (with dummy inputs)
@@ -76,11 +104,13 @@ print(flow_predictions[-1].shape) # >> (1, 448, 512, 2)
 ```
 
 ## Note
-Though I have tried to reproduce the original implementation faithfully, there is some difference between it and my implementation (mainly because of used framework: PyTorch/TensorFlow);
+Though I have tried to reproduce the original implementation faithfully, there is some difference between the original one and mine (mainly because of used framework: PyTorch/TensorFlow);
 
-- The original implements cuda-based correlation function but I don't. My TF-based implementation works well, but cuda-based one may runs faster.
-- I have trained my model only on MPI-Sintel dataset in my private environment (GCP with P100 accelerator). The model has been trained well, but not reached the best score reported in the paper (trained on multiple datasets).
-- The original uses mixed-precision. This may get traininig much faster, but I don't. TensorFlow also enables mixed-precision with few additional lines, see https://www.tensorflow.org/guide/mixed_precision if interested.
+- The original implementations provides cuda-based correlation function but I don't. My TF-based implementation works well, but cuda-based one may run faster.
+- I have trained my model on FlyingChairs and MPI-Sintel separately in my private environment (GCP with P100 accelerator). The model has been trained well, but not reached the best score reported in the paper (trained on multiple datasets).
+- The original one uses mixed-precision. This may get training much faster, but I don't. TensorFlow also enables mixed-precision with few additional lines, see https://www.tensorflow.org/guide/mixed_precision if interested.
+
+Additional, global gradient clipping seems to be essential for stable training though it is not emphasized in the original paper. This operation can be done via `torch.nn.utils.clip_grad_norm_(model.parameters(), clip)` in PyTorch, `tf.clip_by_global_norm(grads, clip_norm)` in TF (coded at `self.train_step` in `tf_raft/model.py`).
 
 ## References
 - https://github.com/princeton-vl/RAFT

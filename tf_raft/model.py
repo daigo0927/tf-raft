@@ -8,7 +8,7 @@ from .layers.corr import CorrBlock, bilinear_sampler, coords_grid, upflow8
 
 
 class RAFT(tf.keras.Model):
-    def __init__(self, drop_rate=0, iters=12, **kwargs):
+    def __init__(self, drop_rate=0, iters=12, iters_pred=24, **kwargs):
         super().__init__(**kwargs)
 
         self.hidden_dim = hdim = 128
@@ -19,6 +19,7 @@ class RAFT(tf.keras.Model):
         self.drop_rate = drop_rate
 
         self.iters = iters
+        self.iters_pred = iters_pred
 
         self.fnet = BasicEncoder(output_dim=256,
                                  norm_type='instance',
@@ -88,7 +89,8 @@ class RAFT(tf.keras.Model):
         coords0, coords1 = self.initialize_flow(image1)
 
         flow_predictions = []
-        for i in range(self.iters):
+        iters = self.iters if training else self.iters_pred
+        for i in range(iters):
             # (bs, h, w, 81xnum_levels)
             corr = correlation.retrieve(coords1)
 
@@ -106,9 +108,10 @@ class RAFT(tf.keras.Model):
         # flow_predictions[-1] is the finest output
         return flow_predictions
 
-    def compile(self, optimizer, loss, epe, **kwargs):
+    def compile(self, optimizer, clip_norm, loss, epe, **kwargs):
         super().compile(**kwargs)
         self.optimizer = optimizer
+        self.clip_norm = clip_norm
         self.loss = loss
         self.epe = epe
 
@@ -129,9 +132,10 @@ class RAFT(tf.keras.Model):
             flow_predictions = self([image1, image2], training=True)
             loss = self.loss([flow, valid], flow_predictions)
         grads = tape.gradient(loss, self.trainable_weights)
+        grads, _ = tf.clip_by_global_norm(grads, self.clip_norm)
         self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
 
-        info = self.epe([flow, valid], flow_predictions)
+        info = self.epe([flow, valid], flow_predictions[-1])
         self.flow_metrics['loss'].update_state(loss)
         self.flow_metrics['epe'].update_state(info['epe'])
         self.flow_metrics['u1'].update_state(info['u1'])
@@ -145,10 +149,8 @@ class RAFT(tf.keras.Model):
         image2 = tf.cast(image2, dtype=tf.float32)
 
         flow_predictions = self([image1, image2], training=False)
-        loss = self.loss([flow, valid], flow_predictions)
 
-        info = self.epe([flow, valid], flow_predictions)
-        self.flow_metrics['loss'].update_state(loss)
+        info = self.epe([flow, valid], flow_predictions[-1])
         self.flow_metrics['epe'].update_state(info['epe'])
         self.flow_metrics['u1'].update_state(info['u1'])
         self.flow_metrics['u3'].update_state(info['u3'])
@@ -169,8 +171,8 @@ class RAFT(tf.keras.Model):
 
 
 class SmallRAFT(RAFT):
-    def __init__(self, drop_rate=0, iters=12, **kwargs):
-        super().__init__(drop_rate, iters, **kwargs)
+    def __init__(self, drop_rate=0, iters=12, iters_pred=24, **kwargs):
+        super().__init__(drop_rate, iters, iters_pred, **kwargs)
 
         self.hidden_dim = hdim = 96
         self.context_dim = cdim = 64
@@ -207,7 +209,8 @@ class SmallRAFT(RAFT):
         coords0, coords1 = self.initialize_flow(image1)
 
         flow_predictions = []
-        for i in range(self.iters):
+        iters = self.iters if training else self.iters_pred
+        for i in range(iters):
             corr = correlation.retrieve(coords1)
 
             flow = coords1 - coords0

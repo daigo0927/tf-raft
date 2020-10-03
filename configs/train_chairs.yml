@@ -1,0 +1,27 @@
+data:
+  root: './FlyingChairs_release/data'
+  split_txt: './FlyingChairs_release/FlyingChairs_train_val.txt'
+
+augment:
+  crop_size: [368, 496]
+  min_scale: -0.1
+  max_scale: 1.0
+  do_flip: True
+
+model:
+  iters: 12
+  iters_pred: 24
+  resume: 0 # '/path/to/checkpoint'
+
+train:
+  epochs: 1
+  batch_size: 4
+  learning_rate: 0.0004
+  weight_decay: 0.0001
+  clip_norm: 1
+
+visualize:
+  num_visualize: 4
+  choose_random: True
+
+logdir: './logs'

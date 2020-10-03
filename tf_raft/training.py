@@ -61,7 +61,7 @@ class VisFlowCallback(callbacks.Callback):
             vis_ids = range(self.num_visualize)
 
         for i in vis_ids:
-            image1, image2, (scene, index) = self.dataset[i]
+            image1, image2, *_ = self.dataset[i]
             if len(image1.shape) > 3:
                 raise ValueError('target dataset must not be batched')
 
@@ -83,6 +83,6 @@ class VisFlowCallback(callbacks.Callback):
 
             contents = np.concatenate([image1, image2, flow_img], axis=0)
 
-            filename = f'epoch{str(epoch+1).zfill(3)}_{scene}_{index}.png'
+            filename = f'epoch{str(epoch+1).zfill(3)}_{str(i+1).zfill(3)}.png'
             savepath = os.path.join(self.logdir, filename)
             imageio.imwrite(savepath, contents)
