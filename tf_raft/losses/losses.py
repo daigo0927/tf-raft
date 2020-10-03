@@ -28,7 +28,7 @@ def end_point_error(y_true, y_pred, max_flow=400):
     mag = tf.sqrt(tf.reduce_sum(flow_gt**2, axis=-1))
     valid = valid & (mag < max_flow)
 
-    epe = tf.sqrt(tf.reduce_sum((y_pred[-1] - flow_gt)**2, axis=-1))
+    epe = tf.sqrt(tf.reduce_sum((y_pred - flow_gt)**2, axis=-1))
     epe = epe[valid]
     epe_under1 = tf.cast(epe < 1, dtype=tf.float32)
     epe_under3 = tf.cast(epe < 3, dtype=tf.float32)
