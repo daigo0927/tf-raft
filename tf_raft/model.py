@@ -28,6 +28,7 @@ class RAFT(tf.keras.Model):
                                  norm_type='batch',
                                  drop_rate=drop_rate)
         self.update_block = BasicUpdateBlock(filters=hdim)
+        self.corr_block = CorrBlock(num_levels=self.corr_levels, radius=self.corr_radius)
 
     def initialize_flow(self, image):
         bs, h, w, _ = image.shape
@@ -74,9 +75,7 @@ class RAFT(tf.keras.Model):
         fmap1, fmap2 = self.fnet([image1, image2], training=training)
 
         # setup correlation values
-        correlation = CorrBlock(fmap1, fmap2,
-                                num_levels=self.corr_levels,
-                                radius=self.corr_radius)
+        self.corr_block.update(fmap1, fmap2)
 
         # context network -> (bs, h/8, w/8, hdim+cdim)
         cnet = self.cnet(image1, training=training)
@@ -92,7 +91,7 @@ class RAFT(tf.keras.Model):
         iters = self.iters if training else self.iters_pred
         for i in range(iters):
             # (bs, h, w, 81xnum_levels)
-            corr = correlation.retrieve(coords1)
+            corr = self.corr_block.retrieve(coords1)
 
             flow = coords1 - coords0
             # (bs, h, w, *), net: hdim, up_mask: 64x9, delta_flow: 2
@@ -186,6 +185,7 @@ class SmallRAFT(RAFT):
                                  norm_type=None,
                                  drop_rate=drop_rate)
         self.update_block = SmallUpdateBlock(filters=hdim)
+        self.corr_block = CorrBlock(self.corr_levels, self.corr_radius)
 
     def call(self, inputs, training):
         image1, image2 = inputs
@@ -196,9 +196,7 @@ class SmallRAFT(RAFT):
         fmap1, fmap2 = self.fnet([image1, image2], training=training)
 
         # setup correlation values
-        correlation = CorrBlock(fmap1, fmap2,
-                                num_levels=self.corr_levels,
-                                radius=self.corr_radius)
+        self.corr_block.update(fmap1, fmap2)
 
         # context network
         cnet = self.cnet(image1, training=training)
@@ -211,7 +209,7 @@ class SmallRAFT(RAFT):
         flow_predictions = []
         iters = self.iters if training else self.iters_pred
         for i in range(iters):
-            corr = correlation.retrieve(coords1)
+            corr = self.corr_block.retrieve(coords1)
 
             flow = coords1 - coords0
             net, _, delta_flow = self.update_block([net, inp, corr, flow])
