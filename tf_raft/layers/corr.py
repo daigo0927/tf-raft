@@ -98,18 +98,17 @@ def upflow8(flow, mode='bilinear'):
 
 class CorrBlock:
     def __init__(self, fmap1, fmap2, num_levels=4, radius=4):
-        self.fmap1 = fmap1
-        self.fmap2 = fmap2
         self.num_levels = num_levels
         self.radius = radius
 
+    def update(self, fmap1, fmap2):
         corr = self.correlation(fmap1, fmap2)
-        batch_size, h1, w1, _, h2, w2 = corr.shape
-        corr = tf.reshape(corr, (batch_size*h1*w1, h2, w2, 1))
+        b, h1, w1, c, h2, w2 = tf.unstack(tf.shape(corr))
+        corr = tf.reshape(corr, (b * h1 * w1, h2, w2, c))
 
         # (bs*h*w, h, w, 1), (bs*h*w, h/2, w/2, 1), ..., (bs*h*w, h/8, w/8, 1)
-        self.corr_pyramid = [corr] 
-        for _ in range(num_levels - 1):
+        self.corr_pyramid = [corr]
+        for _ in range(self.num_levels - 1):
             corr = tf.nn.avg_pool2d(corr, 2, 2, padding='VALID')
             self.corr_pyramid.append(corr)
 
